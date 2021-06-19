@@ -14,6 +14,9 @@ pub struct Arguments {
     /// The GitHub repository.
     #[structopt(short, long, requires("owner"))]
     repo: Option<String>,
+
+    /// The issue to clone.
+    issue: u64,
 }
 
 #[tokio::main]
@@ -45,15 +48,23 @@ async fn main() -> Result<(), Error> {
         }
     }
 
-    dbg!(owner);
-    dbg!(repo);
+    let issue = octocrab::instance()
+        .issues(&owner, &repo)
+        .get(arguments.issue)
+        .await?;
+
+    dbg!(issue);
 
     Ok(())
 }
 
 /// Errors that can happen when running the program.
-#[derive(Clone, Debug, Display, Error, From)]
+#[derive(Debug, Display, Error, From)]
 pub enum Error {
+    /// Failed to fetch GitHub issue.
+    #[display(fmt = "Failed to fetch GitHub issue")]
+    FetchIssue(octocrab::Error),
+
     /// `GITHUB_REPO` environment variable is either empty or invalid.
     #[display(
         fmt = "Invalid GITUB_REPO environment variable, it must have the format `<owner>/<repo>`"

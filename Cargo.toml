@@ -5,5 +5,6 @@ edition = "2018"
 
 [dependencies]
 derive_more = "0.99"
+octocrab = { version = "0.9", default-features = false, features = ["rustls"] }
 structopt = "0.3"
 tokio = { version = "1", features = ["full"] }
