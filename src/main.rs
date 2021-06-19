@@ -12,7 +12,8 @@ pub struct Arguments {
     repo: Option<String>,
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
     let arguments = Arguments::from_args();
     let owner;
     let repo;
