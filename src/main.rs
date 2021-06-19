@@ -1,4 +1,8 @@
-use {std::env, structopt::StructOpt};
+use {
+    derive_more::{Display, Error, From},
+    std::env,
+    structopt::StructOpt,
+};
 
 /// Command-line arguments.
 #[derive(Clone, Debug, StructOpt)]
@@ -13,7 +17,7 @@ pub struct Arguments {
 }
 
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<(), Error> {
     let arguments = Arguments::from_args();
     let owner;
     let repo;
@@ -24,24 +28,35 @@ async fn main() {
     } else {
         // Since the repo parameter requires the owner parameter, if owner is not set then repo is
         // also not set
-        let owner_and_repo = env::var("GITHUB_REPO").expect("Missing GitHub repository");
+        let owner_and_repo = env::var("GITHUB_REPO").map_err(|_| Error::InvalidGitHubRepoEnvVar)?;
         let mut parts = owner_and_repo.split("/");
 
         owner = parts
             .next()
-            .expect("Empty GITHUB_REPO environment variable")
+            .ok_or(Error::InvalidGitHubRepoEnvVar)?
             .to_owned();
         repo = parts
             .next()
-            .expect("Incorrect GITHUB_REPO environment variable, must be <owner>/<repo>")
+            .ok_or(Error::InvalidGitHubRepoEnvVar)?
             .to_owned();
 
-        assert!(
-            parts.next().is_none(),
-            "Incorrect GITHUB_REPO environment variable, must be <owner>/<repo>"
-        );
+        if parts.next().is_some() {
+            return Err(Error::InvalidGitHubRepoEnvVar);
+        }
     }
 
     dbg!(owner);
     dbg!(repo);
+
+    Ok(())
+}
+
+/// Errors that can happen when running the program.
+#[derive(Clone, Debug, Display, Error, From)]
+pub enum Error {
+    /// `GITHUB_REPO` environment variable is either empty or invalid.
+    #[display(
+        fmt = "Invalid GITUB_REPO environment variable, it must have the format `<owner>/<repo>`"
+    )]
+    InvalidGitHubRepoEnvVar,
 }
