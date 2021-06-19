@@ -1,5 +1,6 @@
 use {
-    derive_more::{Display, Error, From},
+    derive_more::{Display, Error},
+    octocrab::OctocrabBuilder,
     std::env,
     structopt::StructOpt,
 };
@@ -48,10 +49,20 @@ async fn main() -> Result<(), Error> {
         }
     }
 
+    if let Some(token_value) = env::var_os("GITHUB_TOKEN") {
+        let token = token_value
+            .into_string()
+            .map_err(|_| Error::InvalidGitHubTokenEnvVar)?;
+
+        octocrab::initialise(OctocrabBuilder::new().personal_token(token))
+            .map_err(Error::InitialiseOctocrab)?;
+    }
+
     let issue = octocrab::instance()
         .issues(&owner, &repo)
         .get(arguments.issue)
-        .await?;
+        .await
+        .map_err(Error::FetchIssue)?;
 
     dbg!(issue);
 
@@ -59,11 +70,19 @@ async fn main() -> Result<(), Error> {
 }
 
 /// Errors that can happen when running the program.
-#[derive(Debug, Display, Error, From)]
+#[derive(Debug, Display, Error)]
 pub enum Error {
     /// Failed to fetch GitHub issue.
     #[display(fmt = "Failed to fetch GitHub issue")]
     FetchIssue(octocrab::Error),
+
+    /// Failed to initialise Octocrab instance to use GitHub API.
+    #[display(fmt = "Failed to initialise Octocrab instance to use GitHub API")]
+    InitialiseOctocrab(octocrab::Error),
+
+    /// `GITHUB_TOKEN` environment variable is not a valid UTF-8 string.
+    #[display(fmt = "Invalid GITUB_TOKEN environment variable")]
+    InvalidGitHubTokenEnvVar,
 
     /// `GITHUB_REPO` environment variable is either empty or invalid.
     #[display(
