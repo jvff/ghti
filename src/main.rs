@@ -58,13 +58,32 @@ async fn main() -> Result<(), Error> {
             .map_err(Error::InitialiseOctocrab)?;
     }
 
-    let issue = octocrab::instance()
-        .issues(&owner, &repo)
+    let instance = octocrab::instance();
+    let issues = instance.issues(&owner, &repo);
+
+    let issue = issues
         .get(arguments.issue)
         .await
         .map_err(Error::FetchIssue)?;
 
-    dbg!(issue);
+    let labels: Vec<_> = issue.labels.into_iter().map(|label| label.name).collect();
+    let assignees: Vec<_> = issue
+        .assignees
+        .into_iter()
+        .map(|assignee| assignee.login)
+        .collect();
+
+    let new_issue = issues
+        .create(issue.title)
+        .body(issue.body.unwrap_or_else(String::new))
+        .milestone(issue.milestone.map(|milestone| milestone.number as u64))
+        .labels(labels)
+        .assignees(assignees)
+        .send()
+        .await
+        .map_err(Error::CreateIssue)?;
+
+    println!("Created issue #{}", new_issue.number);
 
     Ok(())
 }
@@ -72,6 +91,10 @@ async fn main() -> Result<(), Error> {
 /// Errors that can happen when running the program.
 #[derive(Debug, Display, Error)]
 pub enum Error {
+    /// Failed to create new GitHub issue.
+    #[display(fmt = "Failed to create new GitHub issue")]
+    CreateIssue(octocrab::Error),
+
     /// Failed to fetch GitHub issue.
     #[display(fmt = "Failed to fetch GitHub issue")]
     FetchIssue(octocrab::Error),
